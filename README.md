@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Города Беларуси в годы Великой Отечественной войны</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            background: linear-gradient(135deg, #556B2F 0%, #8B7355 50%, #6B8E23 100%);
+            min-height: 100vh;
+            color: #2F4F2F;
+        }
+
+        /* Главная страница */
+        .main-page {
+            display: block;
+            padding: 20px;
+        }
+
+        .main-header {
+            background: linear-gradient(to right, #3e4f1f, #5a4a3a);
+            color: #F5F5DC;
+            padding: 40px 20px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+            border-bottom: 4px solid #DAA520;
+            margin-bottom: 30px;
+        }
+
+        .main-header h1 { 
+            font-size: 2.5em; 
+            margin-bottom: 15px; 
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.6); 
+        }
+        
+        .main-header p { 
+            font-size: 1.3em; 
+            font-style: italic; 
+            opacity: 0.9;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .cities-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .city-card {
+            background: linear-gradient(135deg, rgba(245, 245, 220, 0.95), rgba(232, 232, 208, 0.95));
+            border: 3px solid #8b7355;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .city-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(to right, #6b8e23, #DAA520, #8b7355);
+        }
+
+        .city-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.4);
+        }
+
+        .city-card.available:hover {
+            border-color: #6b8e23;
+            background: linear-gradient(135deg, rgba(255, 255, 240, 0.98), rgba(245, 245, 220, 0.98));
+        }
+
+        .city-icon {
+            font-size: 4em;
+            margin-bottom: 15px;
+        }
+
+        .city-card h2 {
+            color: #3e4f1f;
+            font-size: 1.8em;
+            margin-bottom: 10px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .city-card p {
+            color: #556B2F;
+            font-size: 1em;
+            line-height: 1.5;
+            margin-bottom: 15px;
+        }
+
+        .city-status {
+            display: inline-block;
+            padding: 6px 15px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .status-available {
+            background: linear-gradient(to bottom, #6b8e23, #556b2f);
+            color: #F5F5DC;
+            border: 2px solid #8b7355;
+        }
+
+        .status-coming {
+            background: linear-gradient(to bottom, #8b7355, #6b5d4f);
+            color: #F5F5DC;
+            border: 2px solid #556B2F;
+        }
+
+        .back-button {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 10000;
+            padding: 12px 25px;
+            background: linear-gradient(to bottom, #8b7355, #6b5d4f);
+            border: 2px solid #F5F5DC;
+            color: #F5F5DC;
+            cursor: pointer;
+            border-radius: 6px;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+            font-size: 14px;
+            transition: all 0.3s;
+            display: none;
+            font-family: 'Georgia', serif;
+        }
+
+        .back-button:hover {
+            background: linear-gradient(to bottom, #6b5d4f, #5a4a3a);
+            transform: translateX(-3px);
+        }
+
+        .back-button.visible {
+            display: block;
+        }
+
+        /* Страница Витебска */
+        .vitebsk-page {
+            display: none;
+        }
+
+        .header {
+            background: linear-gradient(to right, #3e4f1f, #5a4a3a);
+            color: #F5F5DC;
+            padding: 25px 20px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+            border-bottom: 4px solid #DAA520;
+        }
+
+        .header h1 { font-size: 2.2em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.6); }
+        .header p { font-size: 1.2em; font-style: italic; opacity: 0.9; }
+
+        .nav-tabs {
+            display: flex;
+            justify-content: center;
+            background: #4a5d23;
+            padding: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+            border-bottom: 2px solid #3e4f1f;
+        }
+
+        .tab-button {
+            padding: 12px 20px;
+            background: linear-gradient(to bottom, #6b8e23, #556b2f);
+            border: 2px solid #8b7355;
+            color: #F5F5DC;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            border-radius: 6px;
+            transition: all 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            font-family: 'Georgia', serif;
+        }
+
+        .tab-button:hover { background: linear-gradient(to bottom, #80993a, #6b7f3f); transform: translateY(-2px); }
+        .tab-button.active { background: linear-gradient(to bottom, #8b7355, #6b5d4f); border-color: #F5F5DC; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3); }
+
+        .content { padding: 20px; max-width: 1200px; margin: 0 auto; }
+
+        .map-section {
+            display: none;
+            background: rgba(245, 245, 220, 0.97);
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+            border: 1px solid #8b7355;
+        }
+
+        .map-section.active { display: block; animation: fadeIn 0.5s; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .map-wrapper {
+            position: relative;
+            height: 550px;
+            border: 3px solid #8b7355;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+        }
+
+        .leaflet-container { width: 100%; height: 100%; font-family: 'Georgia', serif; }
+
+        .panorama-button {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 1000;
+            padding: 10px 20px;
+            background: linear-gradient(to bottom, #DAA520, #B8860B);
+            border: 2px solid #5a4a3a;
+            color: #fff;
+            cursor: pointer;
+            border-radius: 6px;
+            font-weight: bold;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+            font-size: 14px;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .panorama-button:hover { background: linear-gradient(to bottom, #E5B435, #DAA520); transform: translateY(-2px); }
+
+        .info-panel {
+            background: linear-gradient(to right, #f5f5dc, #e8e8d0);
+            border: 2px solid #8b7355;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .info-card {
+            background: #fff;
+            border-left: 5px solid #6b8e23;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 0 6px 6px 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .info-card h3 { color: #3e4f1f; margin-bottom: 10px; font-size: 1.2em; }
+        .info-card p { line-height: 1.6; color: #333; }
+
+        .section-title {
+            text-align: center;
+            color: #3e4f1f;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.5);
+            border-bottom: 2px solid #8b7355;
+            padding-bottom: 10px;
+        }
+
+        .legend {
+            background: rgba(255,255,255,0.8);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border: 1px solid #8b7355;
+        }
+
+        .legend h3 { color: #3e4f1f; margin-bottom: 10px; font-size: 1.1em; }
+        .legend-item { display: flex; align-items: center; margin: 8px 0; }
+        .legend-color { width: 18px; height: 18px; margin-right: 12px; border-radius: 50%; border: 2px solid #333; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+
+        .custom-popup .leaflet-popup-content-wrapper {
+            background: #fffef0;
+            border: 2px solid #8b7355;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            max-height: 450px;
+            overflow-y: auto;
+        }
+        .custom-popup .leaflet-popup-tip { background: #fffef0; border: 1px solid #8b7355; }
+        .popup-content { max-width: 350px; text-align: center; }
+        .popup-content h4 { color: #3e4f1f; margin: 10px 0; font-size: 1.2em; border-bottom: 2px solid #8b7355; padding-bottom: 8px; }
+        .popup-content img { width: 100%; height: 160px; object-fit: cover; border-radius: 4px; margin: 10px 0; border: 2px solid #8b7355; }
+        .popup-content p { font-size: 0.9em; line-height: 1.5; color: #333; text-align: left; margin: 8px 0; }
+        .popup-content .bio-section { 
+            background: #f5f5dc; 
+            padding: 10px; 
+            border-radius: 5px; 
+            margin: 10px 0; 
+            border-left: 3px solid #6b8e23;
+        }
+        .popup-content .bio-section strong { color: #3e4f1f; display: block; margin-bottom: 5px; font-size: 0.95em; }
+        .popup-content .bio-section span { font-size: 0.9em; color: #333; }
+        .popup-content .feat { 
+            background: linear-gradient(to right, #fffacd, #f5f5dc); 
+            padding: 10px; 
+            border-radius: 5px; 
+            margin: 10px 0; 
+            border: 1px solid #DAA520;
+            font-style: italic;
+        }
+        .popup-content .feat strong { color: #8b0000; display: block; margin-bottom: 5px; }
+
+        @media (max-width: 768px) {
+            .main-header h1 { font-size: 1.8em; }
+            .cities-grid { grid-template-columns: 1fr; padding: 10px; }
+            .header h1 { font-size: 1.5em; }
+            .nav-tabs { flex-direction: column; }
+            .tab-button { width: 100%; text-align: center; }
+            .map-wrapper { height: 400px; }
+            .back-button { top: 10px; left: 10px; padding: 10px 15px; font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Кнопка "Назад" -->
+    <button class="back-button" id="backBtn" onclick="showMainPage()">← Назад к городам</button>
+
+    <!-- ГЛАВНАЯ СТРАНИЦА С ГОРОДАМИ -->
+    <div class="main-page" id="mainPage">
+        <div class="main-header">
+            <h1>🏛️ Города Беларуси в годы Великой Отечественной войны 🏛️</h1>
+            <p>Интерактивные карты памяти и славы. Узнайте о героической обороне, подпольном движении и освобождении городов Беларуси от немецко-фашистских захватчиков.</p>
+        </div>
+
+        <div class="cities-grid">
+            <!-- Витебск -->
+            <div class="city-card available" onclick="showVitebsk()">
+                <div class="city-icon">🏰</div>
+                <h2>Витебск</h2>
+                <p>Древний город на Западной Двине. Героическая оборона 1941 года. Центр партизанского движения. Освобожден 26 июня 1944 года.</p>
+                <span class="city-status status-available">✓ Доступно</span>
+            </div>
+
+            <!-- Минск -->
+            <div class="city-card">
+                <div class="city-icon">🏛️</div>
+                <h2>Минск</h2>
+                <p>Столица Беларуси. Подполье и гетто. Освобожден 3 июля 1944 года. Город-герой.</p>
+                <span class="city-status status-coming">Скоро</span>
+            </div>
+
+            <!-- Брест -->
+            <div class="city-card">
+                <div class="city-icon">🏰</div>
+                <h2>Брест</h2>
+                <p>Брестская крепость-герой. Первый удар 22 июня 1941 года. Мужество защитников крепости.</p>
+                <span class="city-status status-coming">Скоро</span>
+            </div>
+
+            <!-- Гомель -->
+            <div class="city-card">
+                <div class="city-icon">🌳</div>
+                <h2>Гомель</h2>
+                <p>Второй по величине город Беларуси. Оборона 1941 года. Подпольное движение.</p>
+                <span class="city-status status-coming">Скоро</span>
+            </div>
+
+            <!-- Гродно -->
+            <div class="city-card">
+                <div class="city-icon">🏰</div>
+                <h2>Гродно</h2>
+                <p>Западные ворота Беларуси. Оборона 1941 года. Гетто и подполье.</p>
+                <span class="city-status status-coming">Скоро</span>
+            </div>
+
+            <!-- Могилев -->
+            <div class="city-card">
+                <div class="city-icon">🏛️</div>
+                <h2>Могилев</h2>
+                <p>Героическая оборона 1941 года. Подполье и партизаны. Освобожден 28 июня 1944 года.</p>
+                <span class="city-status status-coming">Скоро</span>
+            </div>
+
+            <!-- Полоцк -->
+            <div class="city-card">
+                <div class="city-icon">⛪</div>
+                <h2>Полоцк</h2>
+                <p>Древнейший город Беларуси. Центр партизанского движения на севере.</p>
+                <span class="city-status status-coming">Скоро</span>
+            </div>
+
+            <!-- Бобруйск -->
+            <div class="city-card">
+                <div class="city-icon">🌲</div>
+                <h2>Бобруйск</h2>
+                <p>Важный узел обороны. Освобожден 29 июня 1944 года в ходе операции «Багратион».</p>
+                <span class="city-status status-coming">Скоро</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- СТРАНИЦА ВИТЕБСКА (существующий контент) -->
+    <div class="vitebsk-page" id="vitebskPage">
+        <div class="header">
+            <h1>🎖️ Витебск в годы Великой Отечественной войны 🎖️</h1>
+            <p>Интерактивная карта памяти и славы</p>
+        </div>
+
+        <div class="nav-tabs">
+            <button class="tab-button active" onclick="showTab(0, 'map1')">Герои Витебска</button>
+            <button class="tab-button" onclick="showTab(1, 'map2')">Места сражений</button>
+            <button class="tab-button" onclick="showTab(2, 'map3')">Памятники и музеи</button>
+            <button class="tab-button" onclick="showTab(3, 'map4')">Женщины-герои</button>
+        </div>
+
+        <div class="content">
+            <!-- Карта 1: Герои -->
+            <div class="map-section active" id="section0">
+                <h2 class="section-title">Герои Советского Союза — уроженцы Витебска</h2>
+                <div class="map-wrapper">
+                    <div id="map1"></div>
+                    <a href="#" class="panorama-button" id="pano1" target="_blank">📷 Смотреть панораму Яндекс</a>
+                </div>
+                <div class="legend">
+                    <h3>Условные обозначения:</h3>
+                    <div class="legend-item"><div class="legend-color" style="background: #FFD700;"></div><span>Герой Советского Союза</span></div>
+                </div>
+                <div class="info-panel">
+                    <div class="info-card">
+                        <h3>🏅 Память о героях</h3>
+                        <p>На карте отмечены места, связанные с жизнью и подвигом героев Великой Отечественной войны из Витебска. Нажмите на золотую метку, чтобы прочитать подробную биографию.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Карта 2: Места сражений -->
+            <div class="map-section" id="section1">
+                <h2 class="section-title">Основные места сражений за Витебск</h2>
+                <div class="map-wrapper">
+                    <div id="map2"></div>
+                    <a href="#" class="panorama-button" id="pano2" target="_blank">📷 Смотреть панораму Яндекс</a>
+                </div>
+                <div class="legend">
+                    <h3>Условные обозначения:</h3>
+                    <div class="legend-item"><div class="legend-color" style="background: #DC143C;"></div><span>Место оборонительных боев (1941)</span></div>
+                    <div class="legend-item"><div class="legend-color" style="background: #228B22;"></div><span>Место освобождения (1944)</span></div>
+                </div>
+                <div class="info-panel">
+                    <div class="info-card">
+                        <h3>⚔️ Витебская оборона и освобождение</h3>
+                        <p>Витебская оборона 1941 года велась 5–11 июля частями 22‑й, 20‑й, 19‑й армий и ополченцами. Город был оккупирован до 26 июня 1944 года, когда был освобожден в ходе блестящей операции «Багратион».</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Карта 3: Памятники и музеи -->
+            <div class="map-section" id="section2">
+                <h2 class="section-title">Памятники, мемориалы и музеи Витебска</h2>
+                <div class="map-wrapper">
+                    <div id="map3"></div>
+                    <a href="#" class="panorama-button" id="pano3" target="_blank">📷 Смотреть панораму Яндекс</a>
+                </div>
+                <div class="legend">
+                    <h3>Условные обозначения:</h3>
+                    <div class="legend-item"><div class="legend-color" style="background: #8B0000;"></div><span>Мемориальный комплекс</span></div>
+                    <div class="legend-item"><div class="legend-color" style="background: #4169E1;"></div><span>Музей</span></div>
+                    <div class="legend-item"><div class="legend-color" style="background: #DAA520;"></div><span>Памятник</span></div>
+                </div>
+                <div class="info-panel">
+                    <div class="info-card">
+                        <h3>🏛️ Хранители истории</h3>
+                        <p>На карте отмечены главные места памяти в Витебске. Эти мемориалы и музеи хранят правду о подвиге защитников и мирных жителей города.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Карта 4: Женщины-герои -->
+            <div class="map-section" id="section3">
+                <h2 class="section-title">Женщины-герои Великой Отечественной войны</h2>
+                <div class="map-wrapper">
+                    <div id="map4"></div>
+                    <a href="#" class="panorama-button" id="pano4" target="_blank">📷 Смотреть панораму Яндекс</a>
+                </div>
+                <div class="legend">
+                    <h3>Условные обозначения:</h3>
+                    <div class="legend-item"><div class="legend-color" style="background: #FF69B4;"></div><span>Женщина-герой / Подпольщица</span></div>
+                </div>
+                <div class="info-panel">
+                    <div class="info-card">
+                        <h3>👩‍ Женский подвиг</h3>
+                        <p>Среди 90 женщин, удостоенных звания Героя Советского Союза, есть наши землячки из Витебска и Витебской области. Их мужество, работа в подполье и на фронте навсегда вписаны в историю.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Данные для карт с подробными биографиями
+        const heroesData = [
+            { 
+                name: "Петр Машеров", 
+                coords: [55.1904, 30.2049], 
+                birthYear: "1918",
+                birthPlace: "д. Ширки, ныне Россонский район, Витебская область",
+                family: "Жена — Лариса Георгиевна Машерова. Дети: сын Валерий, дочь Галина",
+                military: "Гвардии полковник, командир партизанской бригады имени К.Е. Ворошилова",
+                warLife: "С первых дней войны — в партизанском движении. С 1942 года — командир бригады. В 1943-1944 гг. — секретарь Витебского подпольного обкома комсомола",
+                feat: "Под его командованием бригада провела более 200 боевых операций, пустила под откос 168 эшелонов, уничтожила сотни фашистов. Лично участвовал в дерзких рейдах по тылам врага",
+                photo: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Petr_Masherov_1960s.jpg/440px-Petr_Masherov_1960s.jpg",
+                bio: "Петр Миронович Машеров (1918-1980) — Первый секретарь ЦК Компартии Беларуси, Герой Советского Союза (1944), Герой Социалистического Труда (1978). Один из организаторов партизанского движения на Витебщине. После войны — видный государственный и партийный деятель БССР."
+            },
+            { 
+                name: "Минай Шмырев", 
+                coords: [55.1850, 30.2100], 
+                birthYear: "1906",
+                birthPlace: "д. Ломачино, ныне Ушачский район, Витебская область",
+                family: "Жена — Анна Ивановна. Дети: сын Николай, дочь Вера",
+                military: "Командир 1-й Витебской партизанской бригады, майор",
+                warLife: "С июля 1941 года — в подполье, с ноября 1941 года — командир партизанского отряда, затем бригады. Действовал в Ушачском, Витебском, Полоцком районах",
+                feat: "Под командованием «Батьки Минай» бригада уничтожила более 3000 гитлеровцев, пустила под откос 212 вражеских эшелонов, взорвала 42 моста. Освободил от оккупантов 120 населенных пунктов",
+                photo: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Minay_Shmyryov.jpg/440px-Minay_Shmyryov.jpg",
+                bio: "Минай Филиппович Шмырев (1906-1964) — легендарный партизанский командир, Герой Советского Союза (1943). В народе его называли «Батька Минай». После войны — председатель Ушачского райисполкома, директор совхоза."
+            },
+            { 
+                name: "Иван Сиваков", 
+                coords: [55.1920, 30.2080], 
+                birthYear: "1913",
+                birthPlace: "г. Витебск",
+                family: "Жена — Мария Петровна. Дети: дочь Анна, сын Виктор",
+                military: "Гвардии капитан, командир стрелковой роты 184-го стрелкового полка",
+                warLife: "На фронте с июня 1941 года. Участвовал в оборонительных боях под Смоленском, в битве за Москву, в освобождении Беларуси",
+                feat: "26 июня 1944 года при освобождении Витебска его рота одной из первых ворвалась в город, захватила переправу через Западную Двину и удерживала её до подхода основных сил. Лично уничтожил более 30 гитлеровцев",
+                photo: "https://via.placeholder.com/300x200/6b8e23/ffffff?text=Иван+Сиваков",
+                bio: "Иван Васильевич Сиваков (1913-1944) — Герой Советского Союза (1944, посмертно). Погиб 26 июня 1944 года при освобождении родного города. Похоронен в братской могиле на улице Советской в Витебске."
+            },
+            { 
+                name: "Василий Демидов", 
+                coords: [55.1870, 30.2050], 
+                birthYear: "1920",
+                birthPlace: "г. Витебск",
+                family: "Жена — Зинаида Васильевна. Дети: сын Анатолий, дочь Людмила",
+                military: "Старший лейтенант, командир взвода разведки 215-го гвардейского стрелкового полка",
+                warLife: "На фронте с 1942 года. Прошел путь от рядового до офицера. Участвовал в боях под Сталинградом, на Курской дуге, в освобождении Украины и Беларуси",
+                feat: "В ночь на 25 июня 1944 года с группой разведчиков скрытно переправился через Западную Двину, захватил важный плацдарм и удерживал его более 12 часов, отбив 7 контратак. Уничтожил 2 пулеметные точки и до 20 солдат противника",
+                photo: "https://via.placeholder.com/300x200/6b8e23/ffffff?text=Василий+Демидов",
+                bio: "Василий Александрович Демидов (1920-1998) — Герой Советского Союза (1944). После войны жил в Витебске, работал в органах внутренних дел. Активно участвовал в патриотическом воспитании молодежи."
+            }
+        ];
+
+        const battleSitesData = [
+            { 
+                name: "Оборона Витебска (1941)", 
+                coords: [55.1904, 30.2049], 
+                desc: "Витебская оборона 5–11 июля 1941 года. Части 22‑й, 20‑й, 19‑й армий и народное ополчение более суток сдерживали натиск вермахта. Город был оставлен 11 июля.", 
+                photo: "https://via.placeholder.com/300x200/DC143C/ffffff?text=Оборона+1941", 
+                color: "#DC143C" 
+            },
+            { 
+                name: "Освобождение Витебска (1944)", 
+                coords: [55.1850, 30.2100], 
+                desc: "26 июня 1944 года Витебск был освобожден войсками 1-го Прибалтийского и 3-го Белорусского фронтов в ходе операции «Багратион». Витебский «котел» был ликвидирован.", 
+                photo: "https://via.placeholder.com/300x200/228B22/ffffff?text=Освобождение+1944", 
+                color: "#228B22" 
+            },
+            { 
+                name: "Мост через Западную Двину", 
+                coords: [55.1920, 30.2080], 
+                desc: "Стратегически важный объект. Бои за контроль над мостами через Двину были одними из самых ожесточенных при освобождении города.", 
+                photo: "https://via.placeholder.com/300x200/DC143C/ffffff?text=Мост+через+Двину", 
+                color: "#DC143C" 
+            }
+        ];
+
+        const monumentsData = [
+            { 
+                name: "Музей «Памяти патриотов Витебщины»", 
+                coords: [55.1904, 30.2049], 
+                desc: "Расположен в подвалах бывшей тюрьмы СД на ул. Крылова, 7. В годы войны здесь содержались и подвергались пыткам патриоты-подпольщики.", 
+                photo: "https://via.placeholder.com/300x200/4169E1/ffffff?text=Музей+патриотов", 
+                type: "museum" 
+            },
+            { 
+                name: "Мемориал «Три штыка»", 
+                coords: [55.1850, 30.2100], 
+                desc: "Мемориальный комплекс в честь советских воинов-освободителей и партизан. Скульптурная композиция изображает три огромных штыка, устремленных в небо.", 
+                photo: "https://via.placeholder.com/300x200/8B0000/ffffff?text=Три+штыка", 
+                type: "memorial" 
+            },
+            { 
+                name: "Братская могила на ул. Советской", 
+                coords: [55.1880, 30.2120], 
+                desc: "Здесь похоронены 16 офицеров, трое из которых Герои Советского Союза: Иван Сиваков, Иван Янушковский и Минай Шмырев.", 
+                photo: "https://via.placeholder.com/300x200/8B0000/ffffff?text=Братская+могила", 
+                type: "memorial" 
+            },
+            { 
+                name: "Дом-музей Марка Шагала", 
+                coords: [55.1870, 30.2050], 
+                desc: "Дом, где прошли детские и юношеские годы великого художника. Также является мемориалом памяти жертв геноцида еврейского населения Витебска в годы войны.", 
+                photo: "https://via.placeholder.com/300x200/4169E1/ffffff?text=Музей+Шагала", 
+                type: "museum" 
+            }
+        ];
+
+        const womenHeroesData = [
+            { 
+                name: "Вера Хоружая", 
+                coords: [55.1904, 30.2049], 
+                birthYear: "1903",
+                birthPlace: "г. Витебск",
+                family: "Муж — Николай Хоружий. Дети: сын Борис, дочь Нина",
+                military: "Разведчица, подпольщица, связная между партизанами и подпольем",
+                warLife: "С июля 1941 года — в подполье. Создала и возглавила подпольную группу в Витебске. Передавала ценные разведданные партизанам",
+                feat: "Лично вывела из окружения более 50 красноармейцев. Передала партизанам важные сведения о дислокации немецких войск. Была схвачена гестапо, но не выдала товарищей",
+                photo: "https://via.placeholder.com/300x200/FF69B4/ffffff?text=Вера+Хоружая",
+                bio: "Вера Захаровна Хоружая (1903-1942) — Герой Советского Союза (1960, посмертно). Военная разведчица и подпольщица. 22 декабря 1942 года расстреляна в тюрьме СД в Витебске. Похоронена в братской могиле."
+            },
+            { 
+                name: "Зинаида Туснолобова-Марченко", 
+                coords: [55.1850, 30.2100], 
+                birthYear: "1920",
+                birthPlace: "д. Кручики, ныне Полоцкий район, Витебская область",
+                family: "Муж — Алексей Марченко. Дети: сын Виктор, дочь Татьяна",
+                military: "Старшина медицинской службы, санитарка 849-го стрелкового полка",
+                warLife: "На фронте с ноября 1941 года. Вынесла с поля боя более 120 раненых. Была тяжело ранена, потеряла руки и ноги, но выжила",
+                feat: "За 8 месяцев боев спасла более 80 раненых бойцов и командиров. 2 февраля 1943 года под Курском, будучи тяжело раненой, гранатой отбила атаку гитлеровцев на медсанбат",
+                photo: "https://via.placeholder.com/300x200/FF69B4/ffffff?text=Зинаида+Туснолобова",
+                bio: "Зинаида Ивановна Туснолобова-Марченко (1920-1980) — Герой Советского Союза (1957). После войны стала инвалидом, но вела активную общественную работу. Написала книгу воспоминаний «Я прошла через ад»."
+            },
+            { 
+                name: "Александра Степанова", 
+                coords: [55.1920, 30.2080], 
+                birthYear: "1915",
+                birthPlace: "г. Витебск",
+                family: "Муж — Иван Степанов. Дети: дочь Галина, сын Петр",
+                military: "Партизанка-подпольщица, связная Витебского подпольного горкома партии",
+                warLife: "С августа 1941 года — в подполье. Распространяла листовки, собирала разведданные, помогала семьям партизан",
+                feat: "Первая из белорусских партизанок награждена медалью «Партизану Отечественной войны» I степени. Лично вывела из города более 30 человек, в том числе детей и раненых",
+                photo: "https://via.placeholder.com/300x200/FF69B4/ffffff?text=Александра+Степанова",
+                bio: "Александра Михайловна Степанова (1915-1995) — активная участница витебского подполья. После войны работала в Витебском горкоме партии, занималась патриотическим воспитанием молодежи."
+            }
+        ];
+
+        let maps = {};
+        let mapsInitialized = false;
+
+        // Переключение на страницу Витебска
+        function showVitebsk() {
+            document.getElementById('mainPage').style.display = 'none';
+            document.getElementById('vitebskPage').style.display = 'block';
+            document.getElementById('backBtn').classList.add('visible');
+            window.scrollTo(0, 0);
+            
+            // Инициализируем карты при первом открытии
+            if (!mapsInitialized) {
+                setTimeout(initMaps, 100);
+                mapsInitialized = true;
+            }
+        }
+
+        // Возврат на главную страницу
+        function showMainPage() {
+            document.getElementById('vitebskPage').style.display = 'none';
+            document.getElementById('mainPage').style.display = 'block';
+            document.getElementById('backBtn').classList.remove('visible');
+            window.scrollTo(0, 0);
+        }
+
+        // Функция создания кастомной иконки (цветной круг)
+        function createCustomIcon(color) {
+            return L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div style="background-color: ${color}; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.5);"></div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            });
+        }
+
+        function initMaps() {
+            // Инициализация Карты 1
+            maps.map1 = L.map('map1').setView([55.1904, 30.2049], 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(maps.map1);
+            
+            heroesData.forEach(hero => {
+                L.marker(hero.coords, { icon: createCustomIcon('#FFD700') })
+                 .addTo(maps.map1)
+                 .bindPopup(`
+                    <div class="popup-content">
+                        <h4>${hero.name}</h4>
+                        <img src="${hero.photo}" alt="${hero.name}" onerror="this.src='https://via.placeholder.com/300x200?text=Фото'">
+                        <div class="bio-section">
+                            <strong>📅 Год рождения:</strong>
+                            <span>${hero.birthYear}</span>
+                        </div>
+                        <div class="bio-section">
+                            <strong>📍 Место рождения:</strong>
+                            <span>${hero.birthPlace}</span>
+                        </div>
+                        <div class="bio-section">
+                            <strong>👨‍‍‍ Семейные данные:</strong>
+                            <span>${hero.family}</span>
+                        </div>
+                        <div class="bio-section">
+                            <strong>🎖️ Боевые заслуги:</strong>
+                            <span>${hero.military}</span>
+                        </div>
+                        <div class="bio-section">
+                            <strong>⚔️ Жизнь на войне:</strong>
+                            <span>${hero.warLife}</span>
+                        </div>
+                        <div class="feat">
+                            <strong>🏆 Подвиг:</strong>
+                            ${hero.feat}
+                        </div>
+                        <p><strong>Биография:</strong> ${hero.bio}</p>
+                    </div>
+                 `, { className: 'custom-popup', maxWidth: 400 });
+            });
+            document.getElementById('pano1').href = "https://yandex.ru/maps/?pt=30.2049,55.1904&z=16&l=stv,skl";
+
+            // Инициализация Карты 2
+            maps.map2 = L.map('map2').setView([55.1904, 30.2049], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(maps.map2);
+
+            battleSitesData.forEach(site => {
+                L.marker(site.coords, { icon: createCustomIcon(site.color) })
+                 .addTo(maps.map2)
+                 .bindPopup(`
+                    <div class="popup-content">
+                        <h4>${site.name}</h4>
+                        <img src="${site.photo}" alt="${site.name}">
+                        <p>${site.desc}</p>
+                    </div>
+                 `, { className: 'custom-popup', maxWidth: 300 });
+            });
+            document.getElementById('pano2').href = "https://yandex.ru/maps/?pt=30.2100,55.1850&z=16&l=stv,skl";
+
+            // Инициализация Карты 3
+            maps.map3 = L.map('map3').setView([55.1904, 30.2049], 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(maps.map3);
+
+            monumentsData.forEach(monument => {
+                let color = '#DAA520';
+                if (monument.type === 'memorial') color = '#8B0000';
+                if (monument.type === 'museum') color = '#4169E1';
+
+                L.marker(monument.coords, { icon: createCustomIcon(color) })
+                 .addTo(maps.map3)
+                 .bindPopup(`
+                    <div class="popup-content">
+                        <h4>${monument.name}</h4>
+                        <img src="${monument.photo}" alt="${monument.name}">
+                        <p>${monument.desc}</p>
+                    </div>
+                 `, { className: 'custom-popup', maxWidth: 300 });
+            });
+            document.getElementById('pano3').href = "https://yandex.ru/maps/?pt=30.2049,55.1904&z=16&l=stv,skl";
+
+            // Инициализация Карты 4
+            maps.map4 = L.map('map4').setView([55.1904, 30.2049], 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(maps.map4);
+
+            womenHeroesData.forEach(heroine => {
+                L.marker(heroine.coords, { icon: createCustomIcon('#FF69B4') })
+                 .addTo(maps.map4)
+                 .bindPopup(`
+                    <div class="popup-content">
+                        <h4>${heroine.name}</h4>
+                        <img src="${heroine.photo}" alt="${heroine.name}">
+                        <div class="bio-section">
+                            <strong>📅 Год рождения:</strong>
+                            <span>${heroine.birthYear}</span>
+                        </div>
+                        <div class="bio-section">
+                            <strong>📍 Место рождения:</strong>
+                            <span>${heroine.birthPlace}</span>
+                        </div>
+                        <div class="bio-section">
+                            <strong>👨‍‍‍ Семейные данные:</strong>
+                            <span>${heroine.family}</span>
+                        </div>
+                        <div class="bio-section">
+                            <strong>🎖️ Боевые заслуги:</strong>
+                            <span>${heroine.military}</span>
+                        </div>
+                        <div class="bio-section">
+                            <strong>⚔️ Жизнь на войне:</strong>
+                            <span>${heroine.warLife}</span>
+                        </div>
+                        <div class="feat">
+                            <strong>🏆 Подвиг:</strong>
+                            ${heroine.feat}
+                        </div>
+                        <p><strong>Биография:</strong> ${heroine.bio}</p>
+                    </div>
+                 `, { className: 'custom-popup', maxWidth: 400 });
+            });
+            document.getElementById('pano4').href = "https://yandex.ru/maps/?pt=30.2049,55.1904&z=16&l=stv,skl";
+        }
+
+        function showTab(index, mapId) {
+            document.querySelectorAll('.map-section').forEach(sec => sec.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            
+            document.getElementById('section' + index).classList.add('active');
+            document.querySelectorAll('.tab-button')[index].classList.add('active');
+            
+            setTimeout(() => {
+                if (maps[mapId]) {
+                    maps[mapId].invalidateSize();
+                }
+            }, 100);
+        }
+
+        // Инициализация при загрузке страницы не нужна - карты инициализируются при открытии Витебска
+    </script>
+</body>
+</html>
+
